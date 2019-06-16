@@ -19,6 +19,8 @@ import io.swagger.codegen.utils.SemVer;
 import io.swagger.models.ModelImpl;
 import io.swagger.models.properties.*;
 
+import org.apache.commons.lang3.StringUtils;
+
 public class TypeScriptAngularClientCodegen extends AbstractTypeScriptClientCodegen {
     private static final SimpleDateFormat SNAPSHOT_SUFFIX_FORMAT = new SimpleDateFormat("yyyyMMddHHmm");
     private static final String X_DISCRIMINATOR_TYPE = "x-discriminator-value";
@@ -386,9 +388,22 @@ public class TypeScriptAngularClientCodegen extends AbstractTypeScriptClientCode
         List<Map<String, String>> tsImports = new ArrayList<>();
         for (String im : imports) {
             if (!im.equals(cm.classname)) {
+                String filename = toModelFilename(im);
+                if (!StringUtils.isEmpty(modelNamePrefix)) {
+                    filename = StringUtils.removeStartIgnoreCase(filename, modelNamePrefix);
+                    if (StringUtils.equalsIgnoreCase(filename, modelNamePrefix + "Map")) {
+                        continue;
+                    }
+                }
+                if (!StringUtils.isEmpty(modelNameSuffix)) {
+                    filename = StringUtils.removeEndIgnoreCase(filename, modelNameSuffix);
+                    if (StringUtils.equalsIgnoreCase(filename, "Map" + modelNameSuffix)) {
+                        continue;
+                    }
+                }
                 HashMap<String, String> tsImport = new HashMap<>();
                 tsImport.put("classname", im);
-                tsImport.put("filename", toModelFilename(im));
+                tsImport.put("filename", filename);
                 tsImports.add(tsImport);
             }
         }
@@ -408,7 +423,7 @@ public class TypeScriptAngularClientCodegen extends AbstractTypeScriptClientCode
         if (name.length() == 0) {
             return "default.service";
         }
-        return camelize(name, true) + ".service";
+        return camelize(name, false) + ".service";
     }
 
     @Override
@@ -418,12 +433,24 @@ public class TypeScriptAngularClientCodegen extends AbstractTypeScriptClientCode
 
     @Override
     public String toModelFilename(String name) {
-        return camelize(toModelName(name), true);
+        return camelize(toModelName(name), false);
     }
 
     @Override
     public String toModelImport(String name) {
-        return modelPackage() + "/" + toModelFilename(name);
+        // with modelNamePrefix/modelNameSuffix, name already includes
+        // the prefix/suffix.
+        // for example if modelNamePrefix is 'Swg' and the model name 'Pet',
+        // name is already SwgPet. toModelFilename(name) is SwgSwgPet instead
+        // of SwgPet.
+        String filename = toModelFilename(name);
+        if (!StringUtils.isEmpty(modelNamePrefix)) {
+            filename = StringUtils.removeStartIgnoreCase(filename, modelNamePrefix);
+        }
+        if (!StringUtils.isEmpty(modelNameSuffix)) {
+            filename = StringUtils.removeEndIgnoreCase(filename, modelNameSuffix);
+        }
+        return modelPackage() + "/" + filename;
     }
 
     public String getNpmName() {
